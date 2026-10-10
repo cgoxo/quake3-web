@@ -18,7 +18,8 @@ browser ──HTTPS/WSS :443──► Caddy ──► lobby (Node, :3000) ──
 - **Engine**: upstream [ioquake/ioq3](https://github.com/ioquake/ioq3) at the commit in
   `engine/IOQ3_COMMIT`, plus `engine/patches/ioq3-web.patch`:
   - skips the `FIONBIO` ioctl on Emscripten, so the UDP socket opens in the browser;
-  - exports `Web_Command`, `Web_CommandNow` and `Web_MouseMove` for the touch overlay;
+  - exports `Web_Command`, `Web_CommandNow`, `Web_MouseMove`, `Web_Fire` and
+    `Web_ClientState` for the touch overlay, the menu and the disconnect screen;
   - exports `ccall` and enables memory growth.
 - **Networking**: the wasm client uses Emscripten's socket emulation, which carries each
   UDP datagram as one binary WebSocket message. `Module.websocket.url` points every
@@ -26,8 +27,10 @@ browser ──HTTPS/WSS :443──► Caddy ──► lobby (Node, :3000) ──
   10-byte port header and gives each player its own UDP socket to the room's server.
 - **Rooms**: `server/src/rooms.js` starts one `ioq3ded` per room on a localhost port
   (27960–27999). Rooms are deathmatch only (`g_gametype 0`) with `bot_minplayers 4`.
-  They poll status with `getstatus` and are reaped 2 minutes after the last human
-  leaves (5 minutes' grace for new rooms).
+  They poll status with `getstatus`. A room stops 2 minutes after its last human
+  leaves; a new room gets 5 minutes for its creator to download and join. Both are
+  set with `ROOM_IDLE_SECONDS` and `ROOM_START_GRACE_SECONDS`. Bots alone never keep
+  a room alive.
 - **Content**: OpenArena 0.8.8 (GPL). The server reads the stock pk3s. The browser
   gets a trimmed set from `content/build_content.py`:
   - a 46 MB core pack;
@@ -53,10 +56,22 @@ The map must ship an `.aas` file, or bots will stand still.
 
 ## Controls
 
-- **Desktop**: click to lock the mouse; WASD/arrows to move, mouse to aim and fire. Hold **V** to talk.
-- **Mobile**: left thumb is a floating joystick, and dragging on the right side aims.
-  FIRE, JUMP, DUCK, weapon ◀ ▶, TAB (scores), ≡ (menu) and TALK are on-screen buttons.
-  Landscape only. Add `?touch=1` to a room URL to test the overlay on desktop.
+- **Desktop**: click to lock the mouse; WASD/arrows to move, mouse to aim and fire.
+  Hold **V** to talk. **Escape** opens the menu.
+- **Mobile**: landscape only, fullscreen. Left thumb is a floating joystick, and dragging
+  on the right side aims. On-screen buttons:
+  - FIRE, which also clicks at the cursor in OpenArena's menus;
+  - JUMP and DUCK;
+  - weapon ◀ ▶, TAB for scores, and ≡ for the menu;
+  - TALK at top left: tap to switch your mic on or off.
+- **Menu** (ours, replacing OpenArena's): Resume, name, look sensitivity, field of view,
+  volume, graphics quality, invert look, mic and mute, invite link and Leave room.
+  Settings are saved per browser.
+- **Screen shape**: the view is clamped between 4:3 and 16:9 and centred, because
+  OpenArena's HUD is a stretched 640×480 layout. On wide phones the controls sit in
+  the side bars. The engine re-renders at the new size after rotating or resizing.
+- **Testing**: add `?touch=1` to a room URL for the phone overlay on desktop, and
+  `?debug=1` to expose `window.q3`.
 
 ## Develop locally
 

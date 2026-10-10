@@ -1,11 +1,10 @@
 // Touch overlay: floating joystick on the left, drag-to-look on the right, action buttons.
-// Everything is sent to the engine as console commands (+forward, +attack, ...) so it
-// works whatever the player's key bindings are.
+// Movement goes to the engine as console commands (+forward, ...) so it works whatever
+// the player's key bindings are. FIRE goes through Web_Fire, which also clicks in menus.
 const DEAD = 0.28;      // joystick dead zone, fraction of radius
 const RADIUS = 60;
-const LOOK_SENS = 2.2;  // engine mouse units per CSS pixel
 
-export function setupTouch({ cmd, mouseMove, onTalk }) {
+export function setupTouch({ cmd, mouseMove, fire, lookSpeed, onTalkToggle, onMenu }) {
   const stick = document.getElementById('stick');
   const knob = stick.querySelector('.knob');
   const moveZone = document.getElementById('moveZone');
@@ -66,13 +65,14 @@ export function setupTouch({ cmd, mouseMove, onTalk }) {
   }, { passive: false });
 
   window.addEventListener('touchmove', e => {
+    const speed = lookSpeed();
     for (const t of e.changedTouches) {
       if (t.identifier === stickId) {
         updateStick(t.clientX, t.clientY);
       } else if (looks.has(t.identifier)) {
         const last = looks.get(t.identifier);
-        const dx = Math.round((t.clientX - last.x) * LOOK_SENS);
-        const dy = Math.round((t.clientY - last.y) * LOOK_SENS);
+        const dx = Math.round((t.clientX - last.x) * speed);
+        const dy = Math.round((t.clientY - last.y) * speed);
         if (dx || dy) mouseMove(dx, dy);
         looks.set(t.identifier, { x: t.clientX, y: t.clientY });
       }
@@ -88,38 +88,47 @@ export function setupTouch({ cmd, mouseMove, onTalk }) {
   window.addEventListener('touchend', end);
   window.addEventListener('touchcancel', end);
 
-  // ----- buttons -----
+  // ----- hold / tap buttons -----
   // A held button also works as a look surface: drag your thumb off FIRE to aim while shooting.
-  for (const btn of document.querySelectorAll('.touch [data-hold], .touch [data-tap]')) {
-    const hold = btn.dataset.hold;
-    const tap = btn.dataset.tap;
+  const heldButtons = new Set();
+  const press = (btn, down) => {
+    const { hold, tap, action } = btn.dataset;
+    btn.classList.toggle('held', down);
+    if (action === 'fire') fire(down);
+    else if (hold) cmd(down ? hold : hold.replace('+', '-'));
+    else if (tap && down) cmd(tap);
+    down ? heldButtons.add(btn) : heldButtons.delete(btn);
+  };
+  for (const btn of document.querySelectorAll('.touch [data-hold], .touch [data-tap], .touch [data-action="fire"]')) {
     btn.addEventListener('touchstart', e => {
       e.preventDefault();
       e.stopPropagation();
-      btn.classList.add('held');
-      if (hold) cmd(hold);
-      if (tap) cmd(tap);
+      press(btn, true);
       for (const t of e.changedTouches) looks.set(t.identifier, { x: t.clientX, y: t.clientY });
     }, { passive: false });
     const up = e => {
-      btn.classList.remove('held');
-      if (hold) cmd(hold.replace('+', '-'));
+      if (heldButtons.has(btn)) press(btn, false);
       for (const t of e.changedTouches) looks.delete(t.identifier);
     };
     btn.addEventListener('touchend', up);
     btn.addEventListener('touchcancel', up);
   }
 
-  const talk = document.getElementById('talkBtn');
-  talk.addEventListener('touchstart', e => {
+  // ----- talk (tap to toggle) and menu -----
+  const tapOnly = (el, fn) => el.addEventListener('touchstart', e => {
     e.preventDefault();
-    talk.classList.add('held');
-    onTalk(true);
+    e.stopPropagation();
+    fn();
   }, { passive: false });
-  const talkUp = () => {
-    talk.classList.remove('held');
-    onTalk(false);
+  tapOnly(document.getElementById('talkBtn'), onTalkToggle);
+  tapOnly(document.getElementById('menuBtn'), onMenu);
+
+  return {
+    // Let go of everything, e.g. when a menu opens over the game.
+    releaseAll() {
+      releaseStick();
+      looks.clear();
+      for (const btn of [...heldButtons]) press(btn, false);
+    },
   };
-  talk.addEventListener('touchend', talkUp);
-  talk.addEventListener('touchcancel', talkUp);
 }

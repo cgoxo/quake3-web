@@ -1,0 +1,9 @@
+{
+  "name": "Arena Deathmatch",
+  "short_name": "Arena",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#1b222c"
+}

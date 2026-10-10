@@ -34,10 +34,10 @@ index 294e4c0..a633098 100644
  	// make it broadcast capable
  	if( setsockopt( newsocket, SOL_SOCKET, SO_BROADCAST, (char *) &i, sizeof(i) ) == SOCKET_ERROR ) {
 diff --git a/code/sdl/sdl_input.c b/code/sdl/sdl_input.c
-index dcc6bc5..939e42c 100644
+index dcc6bc5..7682762 100644
 --- a/code/sdl/sdl_input.c
 +++ b/code/sdl/sdl_input.c
-@@ -33,6 +33,37 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+@@ -33,6 +33,53 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  #include "../client/client.h"
  #include "../sys/sys_local.h"
  
@@ -69,6 +69,22 @@ index dcc6bc5..939e42c 100644
 +EMSCRIPTEN_KEEPALIVE void Web_MouseMove( int dx, int dy )
 +{
 +	Com_QueueEvent( 0, SE_MOUSE, dx, dy, 0, NULL );
++}
++
++// The touch FIRE button: shoots in game, and clicks at the cursor when a
++// menu has the keyboard (so it doubles as "OK" in OpenArena's UI).
++EMSCRIPTEN_KEEPALIVE void Web_Fire( int down )
++{
++	if ( Key_GetCatcher( ) & KEYCATCH_UI )
++		Com_QueueEvent( 0, SE_KEY, K_MOUSE1, down ? qtrue : qfalse, 0, NULL );
++	else
++		Cbuf_AddText( down ? "+attack\n" : "-attack\n" );
++}
++
++// Lets the page react to connection changes (connstate_t, CA_ACTIVE = 8).
++EMSCRIPTEN_KEEPALIVE int Web_ClientState( void )
++{
++	return clc.state;
 +}
 +#endif
 +

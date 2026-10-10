@@ -232,12 +232,15 @@ footer.credits a { color: var(--dust); }
 /* ---------- Play page ---------- */
 
 body.play { overflow: hidden; height: 100dvh; background: #000; touch-action: none; }
-/* SDL writes an inline pixel size onto the canvas; keep it pinned to the viewport. */
+/* The game view is clamped between 4:3 and 16:9 (see js/view.js) and centred;
+   SDL writes an inline pixel size onto the canvas, so the size is forced here. */
 body.play canvas#canvas {
   position: fixed;
-  inset: 0;
-  width: 100vw !important;
-  height: 100dvh !important;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--game-w, 100vw) !important;
+  height: var(--game-h, 100dvh) !important;
   display: block;
   background: #000;
 }
@@ -271,7 +274,7 @@ body.play canvas#canvas {
 .rotate {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 40;
   display: none;
   place-items: center;
   text-align: center;
@@ -279,9 +282,84 @@ body.play canvas#canvas {
   background: var(--gunmetal);
   font: 800 30px/1.1 var(--display);
 }
-@media (orientation: portrait) and (pointer: coarse) {
-  body.playing .rotate { display: grid; }
+.rotate p { margin: 0 0 18px; }
+@media (orientation: portrait) {
+  body.playing.touch-on .rotate { display: grid; }
 }
+
+/* ---------- Overlays: menu, disconnected, fullscreen prompt ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  background: rgba(8, 10, 14, .82);
+  overflow-y: auto;
+}
+.overlay[hidden] { display: none; }
+.overlay .panel {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 14px;
+  background: var(--gunmetal);
+  border-left: 4px solid var(--molten);
+  border-radius: 0 6px 6px 0;
+  padding: 18px;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+.overlay h2 { font: 900 40px/1 var(--display); margin: 0; }
+.overlay .sub { color: var(--dust); margin: 4px 0 0; }
+.overlay .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.overlay .row[hidden], .overlay .btn[hidden] { display: none; }
+.overlay .row .btn { flex: 1 1 160px; text-align: center; text-decoration: none; }
+.btn-danger { background: #5a1f1c; }
+.btn-danger:hover { background: var(--blood); }
+
+.settings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.settings .field { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px; font-size: 15px; color: var(--dust); }
+.settings .field output { color: var(--bone); font-weight: 600; }
+.settings input[type=range] { width: 100%; accent-color: var(--molten); height: 28px; }
+.settings input:not([type]), .settings select {
+  background: #121820;
+  border: 2px solid var(--rivet);
+  border-radius: 4px;
+  padding: 8px 10px;
+  width: 100%;
+}
+.check { display: flex; gap: 10px; align-items: center; color: var(--bone); }
+.check input { width: 22px; height: 22px; accent-color: var(--molten); flex: none; }
+.settings .check { grid-column: 1 / -1; }
+
+/* Short landscape phones: two columns of controls, smaller heading. */
+@media (max-height: 480px) {
+  .overlay { align-items: start; }
+  .overlay h2 { font-size: 28px; }
+  .overlay .panel { gap: 8px; padding: 12px 14px; width: min(760px, 100%); max-height: calc(100dvh - 16px); }
+  .overlay .btn { padding: 9px 14px; font-size: 18px; }
+  .overlay .btn-fire { font-size: 24px; padding: 10px 18px; }
+  .settings { grid-template-columns: 1fr 1fr 1fr; gap: 6px 16px; }
+  .settings input:not([type]), .settings select { padding: 5px 8px; }
+  .settings input[type=range] { height: 22px; }
+  .menu-head .sub { display: none; }
+}
+@media (max-width: 520px) {
+  .settings { grid-template-columns: 1fr; }
+}
+
+.fs-prompt {
+  border: 0;
+  color: var(--bone);
+  font: 800 30px/1.1 var(--display);
+  cursor: pointer;
+  z-index: 35;
+}
+.fs-prompt span { border: 2px solid var(--molten); padding: 16px 22px; border-radius: 6px; }
+
+body.menu-open .touch, body.menu-open .hud { display: none !important; }
 
 /* ---------- Touch overlay ---------- */
 
@@ -322,17 +400,17 @@ body.touch-on .touch { display: block; }
   touch-action: none;
 }
 .tbtn.held { background: rgba(255,179,26,.5); border-color: var(--molten); }
-.tbtn.fire { width: 92px; height: 92px; right: 28px; bottom: 34px; font-size: 20px; background: rgba(214,52,43,.4); }
+.tbtn.fire { width: 92px; height: 92px; right: max(24px, env(safe-area-inset-right)); bottom: 34px; font-size: 20px; background: rgba(214,52,43,.4); }
 .tbtn.jump { width: 64px; height: 64px; right: 132px; bottom: 26px; }
 .tbtn.crouch { width: 54px; height: 54px; right: 140px; bottom: 102px; }
-.tbtn.talk { width: 58px; height: 58px; right: 40px; bottom: 140px; }
+.tbtn.talk { width: 64px; height: 64px; left: max(12px, env(safe-area-inset-left)); top: 52px; font-size: 14px; }
 .tbtn.talk[hidden] { display: none; }
-.tbar { position: absolute; top: 10px; right: 12px; display: flex; gap: 8px; }
+.tbar { position: absolute; top: 10px; right: max(12px, env(safe-area-inset-right)); display: flex; gap: 8px; }
 .tbar .tbtn { position: static; width: 46px; height: 46px; border-radius: 6px; }
 
 /* ---------- In-game HUD chips ---------- */
 
-.hud { position: fixed; top: 10px; left: 12px; z-index: 11; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+.hud { position: fixed; top: 10px; left: max(12px, env(safe-area-inset-left)); z-index: 11; display: flex; gap: 8px; align-items: center; pointer-events: none; }
 .chip {
   pointer-events: auto;
   background: rgba(14,18,24,.6);

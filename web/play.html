@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Arena Deathmatch</title>
 <meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@700;800;900&display=swap" rel="stylesheet">
@@ -23,9 +25,9 @@
       <label for="name">Your name</label>
       <input id="name" maxlength="20" autocomplete="nickname" spellcheck="false">
     </div>
-    <label class="check" style="display:flex;gap:8px;align-items:center">
-      <input type="checkbox" id="mic" checked style="width:20px;height:20px;accent-color:var(--molten)">
-      Voice chat (hold V or the Talk button to speak)
+    <label class="check">
+      <input type="checkbox" id="mic" checked>
+      <span id="micLabel">Voice chat (hold V to talk)</span>
     </label>
     <div>
       <div class="progress" aria-hidden="true"><div id="bar"></div></div>
@@ -49,19 +51,82 @@
   <div class="move-zone" id="moveZone"></div>
   <div class="look-zone" id="lookZone"></div>
   <div class="stick" id="stick"><div class="knob"></div></div>
-  <div class="tbtn fire" data-hold="+attack">FIRE</div>
+  <div class="tbtn talk" id="talkBtn" hidden>TALK</div>
+  <div class="tbtn fire" data-action="fire">FIRE</div>
   <div class="tbtn jump" data-hold="+moveup">JUMP</div>
   <div class="tbtn crouch" data-hold="+movedown">DUCK</div>
-  <div class="tbtn talk" id="talkBtn" hidden>TALK</div>
   <div class="tbar">
     <div class="tbtn" data-tap="weapprev">◀</div>
     <div class="tbtn" data-tap="weapnext">▶</div>
     <div class="tbtn" data-hold="+scores">TAB</div>
-    <div class="tbtn" data-tap="togglemenu">≡</div>
+    <div class="tbtn" id="menuBtn">≡</div>
   </div>
 </div>
 
-<div class="rotate">Turn your phone sideways to play</div>
+<!-- Our in-game menu replaces OpenArena's (Escape on desktop, ≡ on phones). -->
+<div class="overlay menu" id="menu" hidden>
+  <div class="panel">
+    <div class="menu-head">
+      <h2 id="menuTitle">Menu</h2>
+      <p class="sub">The match keeps running while this is open.</p>
+    </div>
+    <button class="btn btn-fire" id="resume" type="button">Resume</button>
+
+    <div class="settings">
+      <label class="field">Name
+        <input id="setName" maxlength="20" autocomplete="nickname" spellcheck="false">
+      </label>
+      <label class="field">Look sensitivity <output id="sensOut"></output>
+        <input type="range" id="setSens" min="1" max="15" step="0.5">
+      </label>
+      <label class="field">Field of view <output id="fovOut"></output>
+        <input type="range" id="setFov" min="80" max="120" step="5">
+      </label>
+      <label class="field">Volume <output id="volOut"></output>
+        <input type="range" id="setVol" min="0" max="1" step="0.05">
+      </label>
+      <label class="field">Graphics
+        <select id="setQuality">
+          <option value="fast">Fast</option>
+          <option value="balanced">Balanced</option>
+          <option value="sharp">Sharp</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="setInvert"> Invert look up and down</label>
+    </div>
+
+    <div class="row" id="voiceRow" hidden>
+      <button class="btn" id="micToggle" type="button">Turn mic on</button>
+      <button class="btn" id="muteOthers" type="button">Mute others</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="menuInvite" type="button">Copy invite link</button>
+      <button class="btn btn-danger" id="leave" type="button">Leave room</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="lost" hidden>
+  <div class="panel">
+    <h2>Disconnected</h2>
+    <p class="sub" id="lostInfo">The connection to the room dropped.</p>
+    <div class="row">
+      <button class="btn btn-fire" id="rejoin" type="button">Rejoin</button>
+      <a class="btn" href="/">Back to rooms</a>
+    </div>
+  </div>
+</div>
+
+<button class="overlay fs-prompt" id="fsPrompt" type="button" hidden>
+  <span>Tap to go back to fullscreen</span>
+</button>
+
+<div class="rotate" id="rotate">
+  <div>
+    <p>Turn your phone sideways to play</p>
+    <button class="btn btn-fire" id="rotateFs" type="button" hidden>Play in landscape</button>
+  </div>
+</div>
 
 <script type="module" src="/js/play.js"></script>
 </body>
