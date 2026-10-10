@@ -26,7 +26,10 @@ STAGE=$(mktemp -d)
 export COPYFILE_DISABLE=1  # no macOS ._ files in tarballs
 tar --no-xattrs -czf "$STAGE/app.tgz" --exclude node_modules deploy engine server web
 tar --no-xattrs -czf "$STAGE/content.tgz" -C build content
-g compute scp --quiet --zone "$ZONE" "$STAGE/app.tgz" "$STAGE/content.tgz" "$VM:/tmp/"
+# Unique names: /tmp on the VM is shared by every user that deploys (you, CI).
+RTMP="/tmp/q3deploy-$(whoami)-$$"
+g compute scp --quiet --zone "$ZONE" "$STAGE/app.tgz" "$VM:$RTMP-app.tgz"
+g compute scp --quiet --zone "$ZONE" "$STAGE/content.tgz" "$VM:$RTMP-content.tgz"
 rm -rf "$STAGE"
 
 # 3. install and start
@@ -34,8 +37,9 @@ g compute ssh "$VM" --quiet --zone "$ZONE" --command "sudo bash -s" <<REMOTE
 set -euo pipefail
 until [ -f /srv/q3/.ready ]; do echo "waiting for VM startup script..."; sleep 10; done
 mkdir -p /srv/q3/app && cd /srv/q3/app
-rm -rf deploy engine server web && tar -xzf /tmp/app.tgz
-mkdir -p /srv/q3/content && find /srv/q3/content -mindepth 1 -delete && tar -xzf /tmp/content.tgz -C /srv/q3
+rm -rf deploy engine server web && tar -xzf $RTMP-app.tgz
+mkdir -p /srv/q3/content && find /srv/q3/content -mindepth 1 -delete && tar -xzf $RTMP-content.tgz -C /srv/q3
+rm -f $RTMP-app.tgz $RTMP-content.tgz
 mkdir -p /srv/q3/web && find /srv/q3/web -mindepth 1 -delete && cp -r web/. /srv/q3/web/  # in place: keeps the bind mount valid
 cd deploy
 # Secrets live outside the app dir so redeploys keep the same LiveKit keys.
