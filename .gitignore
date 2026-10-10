@@ -1,0 +1,8 @@
+node_modules/
+vendor/
+build/
+content/download/
+web/engine/
+deploy/.env
+*.log
+.DS_Store

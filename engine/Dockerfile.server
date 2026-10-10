@@ -1,0 +1,28 @@
+# Builds the native ioq3 dedicated server and the lobby/gateway service.
+FROM debian:bookworm-slim AS engine
+ARG IOQ3_COMMIT
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates cmake ninja-build gcc g++ make \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN git init ioq3 && cd ioq3 \
+ && git remote add origin https://github.com/ioquake/ioq3.git \
+ && git fetch --depth 1 origin ${IOQ3_COMMIT} && git checkout FETCH_HEAD
+COPY engine/patches/ioq3-web.patch /src/
+RUN cd ioq3 && git apply /src/ioq3-web.patch \
+ && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_CLIENT=OFF -DBUILD_SERVER=ON -DBUILD_GAME_LIBRARIES=OFF -DBUILD_RENDERER_GL1=OFF -DBUILD_RENDERER_GL2=OFF \
+ && cmake --build build \
+ && find build -name 'ioq3ded*' -type f -perm -u+x | head -1 | xargs -I{} cp {} /ioq3ded
+
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY --from=engine /ioq3ded /usr/local/bin/ioq3ded
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev
+COPY server/ ./
+# Game data (pk3s) is mounted at /data/baseoa by docker-compose.
+ENV IOQ3DED=/usr/local/bin/ioq3ded DATA_DIR=/data
+EXPOSE 3000
+USER node
+CMD ["node", "src/index.js"]

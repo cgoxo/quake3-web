@@ -1,0 +1,77 @@
+diff --git a/cmake/platforms/emscripten.cmake b/cmake/platforms/emscripten.cmake
+index 6948845..0d31bb6 100644
+--- a/cmake/platforms/emscripten.cmake
++++ b/cmake/platforms/emscripten.cmake
+@@ -23,7 +23,8 @@ list(APPEND CLIENT_LINK_OPTIONS
+     -sSTACK_SIZE=5MB
+     -sMIN_WEBGL_VERSION=1
+     -sMAX_WEBGL_VERSION=2
+-    -sEXPORTED_RUNTIME_METHODS=FS,addRunDependency,removeRunDependency
++    -sEXPORTED_RUNTIME_METHODS=FS,addRunDependency,removeRunDependency,ccall
++    -sALLOW_MEMORY_GROWTH=1
+     -sEXIT_RUNTIME=1
+     -sEXPORT_ES6
+     -sEXPORT_NAME=${CLIENT_NAME}
+diff --git a/code/qcommon/net_ip.c b/code/qcommon/net_ip.c
+index 294e4c0..a633098 100644
+--- a/code/qcommon/net_ip.c
++++ b/code/qcommon/net_ip.c
+@@ -838,12 +838,16 @@ SOCKET NET_IPSocket( char *net_interface, int port, int *err ) {
+ 		return newsocket;
+ 	}
+ 	// make it non-blocking
++#ifndef __EMSCRIPTEN__
++	// Emscripten's WebSocket-backed sockets are always non-blocking and
++	// do not implement FIONBIO, so skip this on the web build.
+ 	if( ioctlsocket( newsocket, FIONBIO, &_true ) == SOCKET_ERROR ) {
+ 		Com_Printf( "WARNING: NET_IPSocket: ioctl FIONBIO: %s\n", NET_ErrorString() );
+ 		*err = socketError;
+ 		closesocket(newsocket);
+ 		return INVALID_SOCKET;
+ 	}
++#endif
+ 
+ 	// make it broadcast capable
+ 	if( setsockopt( newsocket, SOL_SOCKET, SO_BROADCAST, (char *) &i, sizeof(i) ) == SOCKET_ERROR ) {
+diff --git a/code/sdl/sdl_input.c b/code/sdl/sdl_input.c
+index dcc6bc5..939e42c 100644
+--- a/code/sdl/sdl_input.c
++++ b/code/sdl/sdl_input.c
+@@ -33,6 +33,37 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #include "../client/client.h"
+ #include "../sys/sys_local.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++
++/*
++===============
++Web input hooks
++
++Called from JavaScript by the touch overlay, which has no keyboard or
++pointer lock. Commands go straight into the command buffer so the overlay
++works regardless of the player's key bindings.
++===============
++*/
++EMSCRIPTEN_KEEPALIVE void Web_Command( const char *text )
++{
++	Cbuf_AddText( text );
++	Cbuf_AddText( "\n" );
++}
++
++// Runs immediately instead of on the next frame; used on page unload to
++// send the disconnect packet before the tab goes away.
++EMSCRIPTEN_KEEPALIVE void Web_CommandNow( const char *text )
++{
++	Cbuf_ExecuteText( EXEC_NOW, text );
++}
++
++EMSCRIPTEN_KEEPALIVE void Web_MouseMove( int dx, int dy )
++{
++	Com_QueueEvent( 0, SE_MOUSE, dx, dy, 0, NULL );
++}
++#endif
++
+ #if !SDL_VERSION_ATLEAST(2, 0, 17)
+ #define KMOD_SCROLL KMOD_RESERVED
+ #endif

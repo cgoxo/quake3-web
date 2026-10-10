@@ -1,0 +1,18 @@
+# Builds the ioq3 WebAssembly client with our web patches.
+# Output: /out/ioquake3.{js,wasm}
+ARG EMSDK_TAG=3.1.58
+FROM emscripten/emsdk:${EMSDK_TAG} AS build
+ARG IOQ3_COMMIT
+RUN apt-get update && apt-get install -y --no-install-recommends ninja-build python3-pip && rm -rf /var/lib/apt/lists/* && pip3 install --no-cache-dir "cmake>=3.25,<4"
+WORKDIR /src
+RUN git init ioq3 && cd ioq3 \
+ && git remote add origin https://github.com/ioquake/ioq3.git \
+ && git fetch --depth 1 origin ${IOQ3_COMMIT} && git checkout FETCH_HEAD
+COPY patches/ioq3-web.patch /src/
+RUN cd ioq3 && git apply /src/ioq3-web.patch \
+ && emcmake cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build build \
+ && mkdir /out && cp build/Release/ioquake3.js build/Release/ioquake3.wasm /out/
+
+FROM scratch
+COPY --from=build /out/ /

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Arena Deathmatch</title>
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="play">
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+
+<div class="gate" id="gate">
+  <div class="panel">
+    <h1 id="mapTitle">Loading room</h1>
+    <p class="sub" id="roomInfo"></p>
+    <div class="name-field">
+      <label for="name">Your name</label>
+      <input id="name" maxlength="20" autocomplete="nickname" spellcheck="false">
+    </div>
+    <label class="check" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="mic" checked style="width:20px;height:20px;accent-color:var(--molten)">
+      Voice chat (hold V or the Talk button to speak)
+    </label>
+    <div>
+      <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+      <p class="progress-label" id="progress" role="status">Preparing download</p>
+    </div>
+    <div class="row">
+      <button class="btn btn-fire" id="play" disabled>Enter the arena</button>
+      <button class="btn" id="invite" type="button">Copy invite link</button>
+    </div>
+    <p class="msg" id="msg" role="alert"></p>
+    <p class="sub"><a href="/">Back to rooms</a></p>
+  </div>
+</div>
+
+<div class="hud" id="hud" hidden>
+  <button class="chip" id="hudInvite" type="button">Invite</button>
+  <span class="chip" id="voiceChip" hidden>Voice off</span>
+</div>
+
+<div class="touch" id="touch" aria-hidden="true">
+  <div class="move-zone" id="moveZone"></div>
+  <div class="look-zone" id="lookZone"></div>
+  <div class="stick" id="stick"><div class="knob"></div></div>
+  <div class="tbtn fire" data-hold="+attack">FIRE</div>
+  <div class="tbtn jump" data-hold="+moveup">JUMP</div>
+  <div class="tbtn crouch" data-hold="+movedown">DUCK</div>
+  <div class="tbtn talk" id="talkBtn" hidden>TALK</div>
+  <div class="tbar">
+    <div class="tbtn" data-tap="weapprev">◀</div>
+    <div class="tbtn" data-tap="weapnext">▶</div>
+    <div class="tbtn" data-hold="+scores">TAB</div>
+    <div class="tbtn" data-tap="togglemenu">≡</div>
+  </div>
+</div>
+
+<div class="rotate">Turn your phone sideways to play</div>
+
+<script type="module" src="/js/play.js"></script>
+</body>
+</html>

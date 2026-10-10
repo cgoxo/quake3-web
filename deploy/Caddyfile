@@ -1,0 +1,12 @@
+{$DOMAIN} {
+	encode zstd gzip
+	# Code changes on every deploy: let browsers keep a copy but revalidate it (ETag/304).
+	# pk3s under /content are cache-busted by hash and cached for 30 days by the lobby.
+	@code path / /r/* /engine/* /css/* /js/* /*.html
+	header @code Cache-Control "no-cache"
+	reverse_proxy 127.0.0.1:3000
+}
+
+voice.{$DOMAIN} {
+	reverse_proxy 127.0.0.1:7880
+}

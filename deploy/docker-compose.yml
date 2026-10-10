@@ -1,0 +1,51 @@
+# Single-VM stack: Caddy (HTTPS) -> lobby/gateway (+ ioq3ded rooms), and LiveKit for voice.
+# All services use host networking: rooms bind 127.0.0.1, LiveKit needs real UDP.
+services:
+  lobby:
+    build:
+      context: ..
+      dockerfile: engine/Dockerfile.server
+      args:
+        IOQ3_COMMIT: ${IOQ3_COMMIT}
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      TRUST_PROXY: "1"
+      ALLOWED_ORIGINS: https://${DOMAIN}
+      DATA_DIR: /data
+      CONTENT_DIR: /content
+      WEB_DIR: /web
+      MAX_ROOMS: ${MAX_ROOMS:-4}
+      LK_API_KEY: ${LK_API_KEY}
+      LK_API_SECRET: ${LK_API_SECRET}
+      LK_PUBLIC_URL: wss://voice.${DOMAIN}
+    volumes:
+      - /srv/q3/openarena:/data:ro
+      - /srv/q3/content:/content:ro
+      - /srv/q3/web:/web:ro
+    tmpfs:
+      - /tmp/q3rooms:uid=1000,gid=1000
+
+  livekit:
+    image: livekit/livekit-server:v1.9.1
+    network_mode: host
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2.8.4
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

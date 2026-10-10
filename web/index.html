@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Deathmatch</title>
+<meta name="description" content="Free-for-all Quake 3 style deathmatch in your browser. Bots fill the arena until your friends arrive.">
+<meta name="theme-color" content="#1b222c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Big+Shoulders+Display:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="lobby">
+<main class="wrap">
+  <header class="hero">
+    <div>
+      <h1 class="wordmark">Arena<small>Deathmatch in your browser</small></h1>
+      <p class="lede">Every player for themselves. Bots keep the arena busy until your friends join, and you can talk over voice while you play.</p>
+    </div>
+    <div class="quick">
+      <div class="name-field">
+        <label for="name">Your name</label>
+        <input id="name" maxlength="20" autocomplete="nickname" spellcheck="false">
+      </div>
+      <button class="btn btn-fire" id="quickplay">Quick play</button>
+    </div>
+  </header>
+
+  <p class="msg" id="msg" role="status"></p>
+
+  <h2 class="section-title">Pick an arena</h2>
+  <ul class="arenas" id="arenas" aria-label="Arenas"></ul>
+
+  <form class="create" id="create">
+    <p class="chosen" id="chosen">Pick an arena above.</p>
+    <label class="field">Max players
+      <select name="maxPlayers">
+        <option>4</option><option>6</option><option selected>8</option><option>10</option><option>12</option>
+      </select>
+    </label>
+    <label class="field">Bot skill
+      <select name="skill">
+        <option value="1">Easy</option><option value="2" selected>Normal</option><option value="3">Hard</option><option value="4">Brutal</option><option value="5">Nightmare</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" name="bots" checked> Fill with bots</label>
+    <button class="btn" type="submit" id="createBtn">Create room</button>
+  </form>
+
+  <h2 class="section-title">Live rooms</h2>
+  <ul class="rooms" id="rooms"></ul>
+
+  <footer class="credits">
+    Game content from <a href="https://openarena.ws">OpenArena</a> (GPL). Engine: <a href="https://github.com/ioquake/ioq3">ioquake3</a> (GPLv2), compiled to WebAssembly.
+    Quake III Arena is a trademark of id Software; this project is not affiliated with id Software.
+  </footer>
+</main>
+<script type="module" src="/js/lobby.js"></script>
+</body>
+</html>
