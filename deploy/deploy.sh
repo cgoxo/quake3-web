@@ -9,9 +9,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 g() { gcloud --project "$PROJECT" "$@"; }
 
-# 1. wasm client (Docker) and trimmed content
-if [ ! -f build/web-engine/ioquake3.wasm ] || [ engine/patches/ioq3-web.patch -nt build/web-engine/ioquake3.wasm ]; then
-  docker build -f engine/Dockerfile.web --build-arg EMSDK_TAG=3.1.58-arm64 \
+# 1. wasm client (Docker) and trimmed content. CI passes SKIP_ENGINE_BUILD=1 with a prebuilt client.
+EMSDK_TAG=3.1.58
+[ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ] && EMSDK_TAG=3.1.58-arm64
+if [ -z "${SKIP_ENGINE_BUILD:-}" ] && { [ ! -f build/web-engine/ioquake3.wasm ] || [ engine/patches/ioq3-web.patch -nt build/web-engine/ioquake3.wasm ]; }; then
+  docker build -f engine/Dockerfile.web --build-arg EMSDK_TAG="$EMSDK_TAG" \
     --build-arg IOQ3_COMMIT="$(cat engine/IOQ3_COMMIT)" -o type=local,dest=build/web-engine engine
 fi
 [ -f build/content/manifest.json ] || content/build.sh

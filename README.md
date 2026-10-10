@@ -86,7 +86,7 @@ docker run --rm -p 3000:3000 -e WEB_DIR=/web -v $PWD/web:/web:ro \
 # open http://localhost:3000
 ```
 
-Use `EMSDK_TAG=3.1.58` on x86 machines.
+Use `EMSDK_TAG=3.1.58` on x86 machines. `deploy.sh` picks the right tag itself.
 
 ## Deploy
 
@@ -95,6 +95,26 @@ deploy/provision.sh    # once: static IP, firewall (80/443, 7881/tcp, 7882/udp),
 deploy/deploy.sh       # build wasm + content locally, ship, docker compose up (restarts rooms)
 deploy/deploy-web.sh   # push only web/ changes; live rooms keep running
 ```
+
+### GitHub Actions
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **Lint and test**: server unit tests, a syntax check of the server and browser
+  modules, the content builder and shellcheck.
+- **Build**: the wasm client and the server image (`ioq3ded` + lobby), so a bad engine
+  patch fails here. It also checks the engine exports the page relies on.
+- **Deploy**: runs on `main` only, after both jobs pass. It picks a mode from the
+  changed files:
+  - `web/` only: push the static site with `deploy-web.sh`; live rooms survive.
+  - docs or CI only: nothing.
+  - anything else: a full `deploy.sh`, which restarts rooms.
+
+  Run it by hand from the Actions tab and choose `web` or `full` to force a mode.
+  GCP auth is keyless (Workload Identity Federation). Only workflows in this repository
+  can impersonate `github-deployer@quake3-arena-mk1a7.iam.gserviceaccount.com`, which
+  can manage the VM and nothing else. The repo variables `GCP_WIF_PROVIDER` and
+  `GCP_SERVICE_ACCOUNT` hold the identifiers; there are no secrets.
 
 Secrets (LiveKit key and secret) are generated on the VM in `/srv/q3/secrets.env` and kept across deploys.
 

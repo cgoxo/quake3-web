@@ -1,0 +1,182 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Deploy mode"
+        type: choice
+        options: [auto, web, full]
+        default: auto
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Server tests
+        working-directory: server
+        run: |
+          npm ci
+          npm test
+          for f in src/*.js; do node --check "$f"; done
+      - name: Web modules parse
+        run: |
+          # The browser modules use top-level await, so check them as ES modules.
+          for f in web/js/*.js; do node --input-type=module --check < "$f" || { echo "::error file=$f::syntax error"; exit 1; }; done
+      - name: Content builder compiles
+        run: python3 -m py_compile content/build_content.py
+      - name: Shell scripts
+        run: shellcheck -S error deploy/*.sh content/build.sh
+
+  engine:
+    name: Build wasm client and server image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Read pinned ioq3 commit
+        id: ioq3
+        run: echo "commit=$(cat engine/IOQ3_COMMIT)" >> "$GITHUB_OUTPUT"
+      - name: Build wasm client
+        uses: docker/build-push-action@v6
+        with:
+          context: engine
+          file: engine/Dockerfile.web
+          build-args: |
+            EMSDK_TAG=3.1.58
+            IOQ3_COMMIT=${{ steps.ioq3.outputs.commit }}
+          outputs: type=local,dest=build/web-engine
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+        env:
+          DOCKER_BUILD_SUMMARY: false
+      - name: Build server image (ioq3ded + lobby)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: engine/Dockerfile.server
+          build-args: IOQ3_COMMIT=${{ steps.ioq3.outputs.commit }}
+          push: false
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+      - name: Check engine exports
+        run: |
+          for fn in Web_Command Web_CommandNow Web_MouseMove Web_Fire Web_ClientState; do
+            grep -q "_$fn" build/web-engine/ioquake3.js || { echo "::error::missing export $fn"; exit 1; }
+          done
+          ls -la build/web-engine
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-engine
+          path: build/web-engine
+          retention-days: 7
+
+  deploy:
+    name: Deploy to GCP
+    needs: [checks, engine]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write   # keyless auth to GCP via Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide what to deploy
+        id: mode
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          mode="${INPUT_MODE:-auto}"
+          if [ "$mode" = auto ]; then
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+              mode=full
+            else
+              changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+              echo "Changed files:"; echo "$changed"
+              # Only docs or CI changed: nothing to ship.
+              if ! echo "$changed" | grep -qvE '^(README\.md|docs/|\.github/|\.gitignore$)'; then
+                mode=none
+              # Only the static site changed: push it without restarting live rooms.
+              elif ! echo "$changed" | grep -qvE '^(web/|README\.md|docs/|\.github/)'; then
+                mode=web
+              else
+                mode=full
+              fi
+            fi
+          fi
+          echo "Deploy mode: $mode"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        if: steps.mode.outputs.mode != 'none'
+        with:
+          name: web-engine
+          path: build/web-engine
+
+      - uses: google-github-actions/auth@v2
+        if: steps.mode.outputs.mode != 'none'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.mode.outputs.mode != 'none'
+
+      - name: Cache OpenArena download
+        if: steps.mode.outputs.mode == 'full'
+        uses: actions/cache@v4
+        with:
+          path: content/download/openarena-0.8.8.zip
+          key: openarena-0.8.8-zip
+      - name: Cache trimmed content
+        if: steps.mode.outputs.mode == 'full'
+        id: content-cache
+        uses: actions/cache@v4
+        with:
+          path: build/content
+          key: content-${{ hashFiles('content/**') }}
+      - name: Build trimmed content
+        if: steps.mode.outputs.mode == 'full' && steps.content-cache.outputs.cache-hit != 'true'
+        run: |
+          command -v convert >/dev/null || { sudo apt-get update -q && sudo apt-get install -yq imagemagick; }
+          content/build.sh
+
+      - name: Deploy (web only, rooms keep running)
+        if: steps.mode.outputs.mode == 'web'
+        run: deploy/deploy-web.sh
+      - name: Deploy (full, restarts rooms)
+        if: steps.mode.outputs.mode == 'full'
+        env:
+          SKIP_ENGINE_BUILD: "1"
+        run: deploy/deploy.sh
+
+      - name: Smoke test
+        if: steps.mode.outputs.mode != 'none'
+        run: |
+          ip=$(gcloud compute addresses describe q3-ip --region asia-south1 --project quake3-arena-mk1a7 --format 'value(address)')
+          url="https://${ip//./-}.sslip.io"
+          for i in 1 2 3 4 5 6; do
+            curl -fsS "$url/api/health" && exit 0
+            sleep 10
+          done
+          echo "::error::$url/api/health did not respond"; exit 1

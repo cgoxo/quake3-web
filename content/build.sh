@@ -5,7 +5,8 @@ cd "$(dirname "$0")/.."
 DL=content/download
 mkdir -p "$DL"
 if [ ! -d "$DL/extracted/openarena-0.8.8/baseoa" ]; then
-  curl -L -o "$DL/openarena-0.8.8.zip" https://download.tuxfamily.org/openarena/rel/088/openarena-0.8.8.zip
+  [ -f "$DL/openarena-0.8.8.zip" ] ||
+    curl -fL -o "$DL/openarena-0.8.8.zip" https://download.tuxfamily.org/openarena/rel/088/openarena-0.8.8.zip
   unzip -q -o "$DL/openarena-0.8.8.zip" -d "$DL/extracted"
 fi
 rm -rf build/content
