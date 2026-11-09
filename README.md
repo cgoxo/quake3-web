@@ -3,7 +3,7 @@
 Free-for-all deathmatch you play from a link, on desktop or phone. Bots fill empty
 rooms, and players in a room can talk over push-to-talk voice.
 
-Live: https://35-207-211-119.sslip.io (GCP project `quake3-arena-mk1a7`, VM `q3-1`, asia-south1-a)
+Live: https://35-207-211-119.sslip.io [Sunset] (GCP project `quake3-arena-mk1a7`, VM `q3-1`, asia-south1-a)
 
 ## How it fits together
 
